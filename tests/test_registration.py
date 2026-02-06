@@ -4,6 +4,7 @@ import uuid
 from kafka import KafkaProducer
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
+from framework.internal.kafka.producer import Producer
 
 
 def test_failed_registration(account: AccountApi, mail: MailApi) -> None:
@@ -83,3 +84,24 @@ def test_success_registration_with_kafka_producer(mail: MailApi) -> None:
     else:
         raise AssertionError("No mail found")
 
+"""
+Далее тоже самое только уже через реализацию класса Producer
+"""
+
+
+def test_success_registration_with_kafka_producer_class(mail: MailApi,kafka_producer: Producer) -> None:
+
+    base = uuid.uuid4().hex
+    message = {"login": base,
+               "email": f"{base}@mail.ru",
+               "password": "1234541244"}
+
+    kafka_producer.send('register-events', message)
+
+    for _ in range(10):
+        response = mail.find_message(query=base)
+        if response.json()["total"] > 0:
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError("No mail found")
