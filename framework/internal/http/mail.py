@@ -1,4 +1,5 @@
-from http.client import responses
+import json
+from urllib.parse import urlparse
 
 import httpx
 
@@ -18,3 +19,21 @@ class MailApi:
         print(response.content)
         return response
 
+
+    def find_confirmation_id(self, query: str) -> str:
+        response = self.find_message(query=query)
+        return self.extract_confirmation_id(response)
+
+    def extract_confirmation_id(self, response: httpx.Response) -> str:
+        data = response.json()
+        items = data.get("items", [])
+        if not items:
+            raise ValueError("No mail items found")
+        body = items[0]["Content"]["Body"]
+        body_data = json.loads(body)
+        confirmation_url = body_data["ConfirmationLinkUrl"]
+        path = urlparse(confirmation_url).path.rstrip("/")
+        confirmation_id = path.split("/")[-1]
+        if not confirmation_id:
+            raise ValueError("Confirmation id not found")
+        return confirmation_id
