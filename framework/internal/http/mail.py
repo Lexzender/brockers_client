@@ -20,15 +20,10 @@ class MailApi:
         return response
 
 
-    def find_confirmation_id(self, query: str) -> str:
+    def extract_confirmation_id(self, query: str) -> str:
         response = self.find_message(query=query)
-        return self.extract_confirmation_id(response)
-
-    def extract_confirmation_id(self, response: httpx.Response) -> str:
         data = response.json()
         items = data.get("items", [])
-        if not items:
-            raise ValueError("No mail items found")
         body = items[0]["Content"]["Body"]
         body_data = json.loads(body)
         confirmation_url = body_data["ConfirmationLinkUrl"]

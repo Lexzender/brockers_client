@@ -1,7 +1,5 @@
-import json
 import time
 import uuid
-from kafka import KafkaProducer
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
 from framework.internal.kafka.producer import Producer
@@ -79,5 +77,5 @@ def test_register_events_error_consumer(account: AccountApi, mail: MailApi,kafka
     else:
         raise AssertionError("No mail found")
 
-    confirmation_id = mail.find_confirmation_id(query=base)
+    confirmation_id = mail.extract_confirmation_id(query=base)
     account.activate_user(confirmation_id,login=base)
