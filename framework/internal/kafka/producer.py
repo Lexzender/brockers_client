@@ -50,6 +50,6 @@ class Producer(Singleton):
     def __exit__(self,
                  exc_type: type[BaseException],
                  exc_val: BaseException | None,
-                 exc_tb: TracebackType | None) \
+                 exc_tb: TracebackType | None) -> None:
             -> None:
         self.stop()
