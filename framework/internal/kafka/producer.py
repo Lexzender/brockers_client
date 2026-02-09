@@ -51,5 +51,4 @@ class Producer(Singleton):
                  exc_type: type[BaseException],
                  exc_val: BaseException | None,
                  exc_tb: TracebackType | None) -> None:
-            -> None:
         self.stop()
