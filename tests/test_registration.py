@@ -30,7 +30,7 @@ def test_success_registration(account: AccountApi, mail: MailApi) -> None:
         raise AssertionError("No mail found")
 
 
-def test_success_registration_with_kafka_producer(mail: MailApi,kafka_producer: Producer) -> None:
+def test_success_registration_with_kafka_producer(mail: MailApi, kafka_producer: Producer) -> None:
 
     base = uuid.uuid4().hex
     message = {"login": base,
