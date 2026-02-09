@@ -14,7 +14,6 @@ class AccountApi:
         return response
 
     def activate_user(self, token: str, login: str) -> httpx.Response:
-        params = {"token": token}
         response = self._client.put("/register/user/activate", params=params)
         if response.status_code != 200:
             raise AssertionError(f"Expected 200, got {response.status_code}")
