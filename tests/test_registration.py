@@ -2,6 +2,7 @@ import time
 import uuid
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
+from framework.internal.kafka.consumer import Consumer
 from framework.internal.kafka.producer import Producer
 
 
@@ -79,3 +80,19 @@ def test_register_events_error_consumer(account: AccountApi, mail: MailApi,kafka
 
     confirmation_id = mail.extract_confirmation_id(query=base)
     account.activate_user(confirmation_id,login=base)
+
+
+def test_success_registration_with_kafka_producer_consumer(kafka_consumer: Consumer, kafka_producer: Producer) -> None:
+    base = uuid.uuid4().hex
+
+    message = {"login": base,
+               "email": f"{base}@mail.ru",
+               "password": "1234541244"}
+
+    kafka_producer.send('register-events', message)
+    for i in range(10):
+        message = kafka_consumer.get_message()
+        if message.value["login"] == base:
+            break
+    else:
+        raise AssertionError("No mail found")
