@@ -1,25 +1,44 @@
 import json
 import queue
 import threading
+import time
+from collections import defaultdict
 
 from kafka import KafkaConsumer
 
+from framework.internal.kafka.subscriber import Subscriber
+from framework.internal.singleton import Singleton
 
-class Consumer:
-    def __init__(self, bootstrap_servers=["185.185.143.231:9092"], topic: str = "register-events"):
-        self._topic = topic
+
+class Consumer(Singleton):
+
+    _started: bool = False
+
+    def __init__(self, subscribers: list[Subscriber],bootstrap_servers=["185.185.143.231:9092"]):
         self._bootstrap_servers = bootstrap_servers
+        self._subscribers = subscribers   # список подписчиков
         self._consumer: KafkaConsumer | None = None
         self._running = threading.Event()  # флаг работаем/не работаем
         self._ready = threading.Event()  # Событие готовности фрнового потока-консумера (метод_consume). Означает что поток запустился и сообщил что он готов к работе
         self._thread: threading.Thread | None = None  # ссылка на фоновый поток
-        self._messages: queue.Queue = queue.Queue()  # очередь,куда будут склыдываться сообщения
+        self._watchers: dict[str, list[Subscriber]] = defaultdict(list)   # создаем список подписчиков пример { "register-events": [register_events_subscriber], "register-events-errors": [another_subscriber]}
+
+    def register(self):
+        if self._subscribers is None:
+            raise RuntimeError("Subscribers is not initialized")
+
+        if self._started:
+            raise RuntimeError("Consumer is already started")
+
+        for subscriber in self._subscribers:
+            print(f"Registering subscriber {subscriber.topic}")
+            self._watchers[subscriber.topic].append(subscriber)
 
     def start(self):
 
-        # Создаем kafka consumer
+        # Создаем kafka consumers
         self._consumer = KafkaConsumer(
-            self._topic,
+            *self._watchers.keys(),  # сразу подключаемся ко всем топикам
             bootstrap_servers=self._bootstrap_servers,
             auto_offset_reset="latest",
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
@@ -36,6 +55,8 @@ class Consumer:
         if not self._ready.wait(timeout=10):  # тут ожидаем что в течение 10 сек _consume будет готов к работе,
             # если не готов бросаем ошибку  RuntimeError
             raise RuntimeError("Consumer not ready yet")
+
+        self._started = True
 
     # Бесконечный цикл чтения сообщения
     def _consume(self):
@@ -57,23 +78,29 @@ class Consumer:
             
                 max_records=10
                 чтобы читать сообщения порциями (батчами), а не слишком много за раз. Это снижает нагрузку и делает обработку более управляемой.
+                
+                пример того что будет в messages
+                {
+                TopicPartition(topic='register-events', partition=0): [record1, record2],  (record - сообщение)
+                TopicPartition(topic='register-events-errors', partition=0): [record3]
+                }
                 """
                 for topic_partition, records in messages.items():
-                    for record in records:  # итерируемся по списку сообщений полученных из topic_partition
-                        print(f"{topic_partition}: {record}")  # печатаем каждое сообщение
-                        self._messages.put(record)  # кладем в очередь сообщение
+                    topic = topic_partition.topic
+                    for record in records:
+                        for watcher in self._watchers[topic]:
+                            print(f"{topic}: {record}")
+                            watcher.handle_message(record)
+                    time.sleep(0.1)
+
+                if not messages:
+                    time.sleep(0.1)
+
+
 
         except Exception as e:
             print(f"Error: {e}")
 
-    # Метод для получения сообщения из очереди
-    def get_message(self, timeout: int = 90):
-        try:
-            return self._messages.get(
-                timeout=timeout)  # Пытаемся взять сообщение из очереди. если сообщение есть вернет его, если нет то после таймаута кинет ошибку
-
-        except queue.Empty:
-            raise AssertionError("Queue is empty")
 
     # метод для остановки консумера
     def stop(self):
@@ -87,22 +114,48 @@ class Consumer:
             if self._thread.is_alive():
                 print("Thread is still alive")
 
-        if self._consumer:  # Закрываем kafka consumer
+        if self._consumer:  # Закрываем kafka consumers
             try:
                 self._consumer.close(timeout_ms=2000)
                 print("Stop consuming")
 
             except Exception as e:
-                print(f"Error while closing consumer: {e}")
+                print(f"Error while closing consumers: {e}")
 
         del self._consumer
-        del self._messages
+        self._watchers.clear()
+        self._subscribers.clear()
+        self._started = False
+
 
         print("Consumer stopped")
 
     def __enter__(self):
+        self.register()
         self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+
+
+"""
+Как тест достает сообщение обратно
+Что происходит:
+1.Тест отправляет сообщение через kafka_producer.send('register-events', message).
+2.Через некоторое время курьер (Consumer) подберет его из Kafka и положит в ящик подписчика.
+3.Тест вызывает register_events_subscriber.get_message().
+4.get_message() достает из очереди первое письмо.
+5.Тест проверяет: message.value["login"] == base.
+
+Бытовой пример:
+1.Ты сам отправил письмо на почту.
+2.Курьер принес его в твой ящик.
+3.Ты открыл ящик и проверил, что это именно твое письмо по имени/логину.
+Самая короткая схема:
+1.send() = “отправить письмо на почту”.
+2.Consumer.poll() = “курьер забрал с почты”.
+3.handle_message() = “курьер положил в ящик”.
+4.get_message() = “ты достал из ящика”
+"""

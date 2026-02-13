@@ -1,5 +1,7 @@
 import time
 import uuid
+
+from framework.helpers.kafka.consumers.register_events import RegisterEventsSubscriber
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
 from framework.internal.kafka.consumer import Consumer
@@ -82,7 +84,7 @@ def test_register_events_error_consumer(account: AccountApi, mail: MailApi,kafka
     account.activate_user(confirmation_id,login=base)
 
 
-def test_success_registration_with_kafka_producer_consumer(kafka_consumer: Consumer, kafka_producer: Producer) -> None:
+def test_success_registration_with_kafka_producer_consumer(register_events_subscriber: RegisterEventsSubscriber, kafka_producer: Producer) -> None:
     base = uuid.uuid4().hex
 
     message = {"login": base,
@@ -91,7 +93,7 @@ def test_success_registration_with_kafka_producer_consumer(kafka_consumer: Consu
 
     kafka_producer.send('register-events', message)
     for i in range(10):
-        message = kafka_consumer.get_message()
+        message = register_events_subscriber.get_message()
         if message.value["login"] == base:
             break
     else:
