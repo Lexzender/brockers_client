@@ -41,7 +41,7 @@ class Producer(Singleton):
 
         try:
             with self._lock:
-                # Лок делает отправку последовательной между потоками.
+                # Лок делает отправку последовательной между потоками. если другой поток уже внутри, текущий поток ждет.
                 # send() возвращает Future: в нем будут данные о записи (topic, partition, offset, timestamp),
                 # которые заполнятся после подтверждения брокером.
                 future = self._producer.send(topic=topic, value=message)
