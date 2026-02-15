@@ -6,7 +6,6 @@ import pytest
 from framework.helpers.kafka.consumers.register_events import RegisterEventsSubscriber
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
-from framework.internal.kafka.consumer import Consumer
 from framework.internal.kafka.producer import Producer
 
 
@@ -50,7 +49,6 @@ def test_success_registration_with_kafka_producer(register_message: dict[str, st
                                                   mail: MailApi,
                                                   kafka_producer: Producer) -> None:
     login = register_message["login"]
-
 
     kafka_producer.send('register-events', register_message)
 
@@ -103,8 +101,6 @@ def test_success_registration_with_kafka_producer_consumer(register_message: dic
                                                            register_events_subscriber: RegisterEventsSubscriber,
                                                            kafka_producer: Producer) -> None:
     login = register_message["login"]
-
-
 
     kafka_producer.send('register-events', register_message)
     for i in range(10):
