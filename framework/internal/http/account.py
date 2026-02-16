@@ -9,7 +9,7 @@ class AccountApi:
 
     def register_user(self, login: str, email: str, password: str) -> httpx.Response:
         data = {"login": login, "email": email, "password": password}
-        response =  self._client.post("/register/user/async-register", json=data)
+        response = self._client.post("/register/user/async-register", json=data)
         print(response.content)
         return response
 
@@ -23,4 +23,3 @@ class AccountApi:
             raise AssertionError(f"Expected login {login}, got {response_login}")
         print(response.content)
         return response
-

@@ -19,7 +19,6 @@ class MailApi:
         print(response.content)
         return response
 
-
     def extract_confirmation_id(self, query: str) -> str:
         response = self.find_message(query=query)
         data = response.json()
