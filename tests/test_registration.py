@@ -104,9 +104,10 @@ def test_success_registration_with_kafka_producer_consumer(register_message: dic
     login = register_message["login"]
 
     kafka_producer.send('register-events', register_message)
-    message = register_events_subscriber.get_message()
-    if message.value["login"] == login:
-        return
+    for i in range(10):
+        message = register_events_subscriber.get_message()
+        if message.value["login"] == login:
+            break
     else:
         raise AssertionError("No mail found")
 
