@@ -8,6 +8,7 @@ from framework.helpers.kafka.consumers.register_events_errors import RegisterEve
 from framework.internal.http.account import AccountApi
 from framework.internal.http.mail import MailApi
 from framework.internal.kafka.producer import Producer
+from framework.internal.rmq.publisher import RmqPublisher
 
 
 @pytest.fixture
@@ -152,3 +153,23 @@ def test_republish_unknown_error_as_validation(register_events_errors_subscriber
     kafka_producer.send('register-events-errors', message)
 
     register_events_errors_subscriber.find_message_with_error_type_validation(login)
+
+
+def test_rmq(rmq_publisher: RmqPublisher,mail: MailApi):
+    address = f"{uuid.uuid4().hex}@mail.ru"
+    message = {
+        "address": address,
+        "subject": "Test message",
+        "body": "Test body",
+    }
+
+    rmq_publisher.publish("dm.mail.sending", message)
+
+    for _ in range(10):
+        response = mail.find_message(query=message["address"])
+        if response.json()["total"] > 0:
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError("No mail found")
+
